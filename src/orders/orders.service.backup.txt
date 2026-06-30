@@ -1,4 +1,4 @@
-﻿import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto, UpdateOrderStatusDto, OrderQueryDto } from './dto';
 import { OrderStatus } from '@prisma/client';
@@ -27,8 +27,8 @@ export class OrdersService {
   }
 
   async findAll(userId: number, query: OrderQueryDto, isAdmin = false) {
-    const page = Number(query.page || 1);
-    const limit = Number(query.limit || 10);
+    const page = query.page || 1;
+    const limit = query.limit || 10;
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -45,8 +45,7 @@ export class OrdersService {
       }),
       this.prisma.order.count({ where }),
     ]);
-
-    return { success: true, data: items, items, total, page, limit, totalPages: Math.ceil(total / limit) };
+    return { items, total, page, limit, totalPages: Math.ceil(total / limit) };
   }
 
   async findOne(id: number, userId?: number) {
@@ -57,56 +56,13 @@ export class OrdersService {
       where,
       include: { items: true },
     });
-
     if (!order) throw new NotFoundException('Order not found');
-    return { success: true, data: { order }, order };
+    return order;
   }
 
   async create(userId: number, dto: CreateOrderDto) {
-    if (!dto.items || dto.items.length === 0) {
-      throw new BadRequestException('Cart is empty');
-    }
-
     const orderNumber = this.generateOrderNumber();
     const deliveryOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    const preparedItems: any[] = [];
-
-    for (const item of dto.items) {
-      const product = await this.prisma.product.findUnique({
-        where: { id: Number(item.productId) },
-        include: { images: true, variants: true },
-      });
-
-      if (!product) throw new BadRequestException(`Product ${item.productId} not found`);
-
-      const variant = item.variantId
-        ? product.variants.find((v) => v.id === Number(item.variantId))
-        : product.variants.find((v) => v.isDefault) || product.variants[0];
-
-      if (!variant) throw new BadRequestException(`No variant found for ${product.name}`);
-      if (variant.stock < item.quantity) throw new BadRequestException(`${product.name} is out of stock`);
-
-      const price = Number(variant.sellingPrice);
-      const quantity = Number(item.quantity);
-      const itemSubtotal = price * quantity;
-      const primaryImage = product.images.find((img) => img.isPrimary) || product.images[0];
-
-      preparedItems.push({
-        productId: product.id,
-        variantId: variant.id,
-        productName: product.name,
-        productImage: primaryImage?.image || null,
-        variantLabel: variant.variant || variant.unit || variant.weight || '',
-        price,
-        quantity,
-        subtotal: itemSubtotal,
-      });
-    }
-
-    const subtotal = preparedItems.reduce((sum, item) => sum + item.subtotal, 0);
-    const deliveryFee = subtotal >= 199 ? 0 : 20;
-    const tax = Math.round(subtotal * 0.05);
-    const totalAmount = subtotal + deliveryFee + tax;
 
     const order = await this.prisma.order.create({
       data: {
@@ -114,18 +70,18 @@ export class OrdersService {
         userId,
         status: 'pending',
         paymentMethod: dto.paymentMethod || 'cod',
-        subtotal,
-        discount: 0,
-        deliveryFee,
-        tax,
-        totalAmount,
+        subtotal: dto.subtotal,
+        discount: dto.discount || 0,
+        deliveryFee: dto.deliveryFee || 0,
+        tax: dto.tax || 0,
+        totalAmount: dto.totalAmount,
         couponCode: dto.couponCode,
-        couponDiscount: 0,
+        couponDiscount: dto.couponDiscount || 0,
         deliveryAddress: dto.deliveryAddress || {},
         notes: dto.notes || '',
         otp: deliveryOtp,
         items: {
-          create: preparedItems.map((item) => ({
+          create: dto.items.map((item) => ({
             productId: item.productId,
             variantId: item.variantId,
             productName: item.productName,
@@ -133,28 +89,16 @@ export class OrdersService {
             variantLabel: item.variantLabel,
             price: item.price,
             quantity: item.quantity,
-            subtotal: item.subtotal,
+            subtotal: item.price * item.quantity,
           })),
         },
       },
       include: { items: true },
     });
 
-    for (const item of preparedItems) {
-      await this.prisma.productVariant.update({
-        where: { id: item.variantId },
-        data: { stock: { decrement: item.quantity } },
-      });
-    }
-
     await this.prisma.cartItem.deleteMany({ where: { userId } });
 
-    return {
-      success: true,
-      data: { order },
-      order,
-      message: 'Order placed successfully',
-    };
+    return order;
   }
 
   async updateStatus(id: number, dto: UpdateOrderStatusDto, actorRole: string) {
@@ -163,7 +107,9 @@ export class OrdersService {
 
     const allowed = ALLOWED_TRANSITIONS[order.status as OrderStatus];
     if (!allowed.includes(dto.status)) {
-      throw new BadRequestException(`Cannot transition from ${order.status} to ${dto.status}`);
+      throw new BadRequestException(
+        `Cannot transition from ${order.status} to ${dto.status}`,
+      );
     }
 
     const updateData: any = { status: dto.status };
@@ -202,7 +148,6 @@ export class OrdersService {
       this.prisma.order.aggregate({ _sum: { totalAmount: true } }),
       this.prisma.order.groupBy({ by: ['status'], _count: true }),
     ]);
-
     return {
       totalOrders,
       totalRevenue: totalRevenue._sum.totalAmount || 0,
