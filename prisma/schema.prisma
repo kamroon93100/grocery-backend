@@ -1,4 +1,4 @@
-generator client {
+﻿generator client {
   provider = "prisma-client-js"
 }
 
@@ -20,6 +20,8 @@ model Category {
 
   subcategories Subcategory[]
   products      Product[]
+  @@index([isActive])
+  @@index([sortOrder])
 
   @@map("categories")
 }
@@ -38,6 +40,7 @@ model Subcategory {
 
   category Category @relation(fields: [categoryId], references: [id])
   products Product[]
+  @@index([categoryId, isActive])
 
   @@map("subcategories")
 }
@@ -53,6 +56,7 @@ model Brand {
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
   products Product[]
+  @@index([isActive])
 
   @@map("brands")
 }
@@ -101,6 +105,12 @@ model Product {
   @@index([brandId])
   @@index([slug])
   @@index([sku])
+  @@index([isActive])
+  @@index([isFeatured])
+  @@index([isTopPick])
+  @@index([isOffer])
+  @@index([name])
+  @@index([createdAt])
   @@map("products")
 }
 
@@ -126,6 +136,8 @@ model ProductVariant {
 
   @@index([productId])
   @@index([sku])
+  @@index([stock])
+  @@index([isActive])
   @@map("product_variants")
 }
 
@@ -305,6 +317,8 @@ model Order {
   @@index([paymentStatus])
   @@index([deliveryPartnerId])
   @@index([orderNumber])
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
   @@map("orders")
 }
 
@@ -360,6 +374,7 @@ model Review {
 
   @@unique([userId, productId])
   @@index([productId])
+  @@index([rating])
   @@map("reviews")
 }
 
@@ -377,6 +392,8 @@ model Coupon {
   expiresAt    DateTime? @map("expires_at")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
+  @@index([isActive])
+  @@index([expiresAt])
 
   @@map("coupons")
 }
@@ -396,6 +413,7 @@ model Notification {
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
+  @@index([userId, isRead])
   @@map("notifications")
 }
 
@@ -426,5 +444,7 @@ model WishlistItem {
 
   @@unique([userId, productId])
   @@index([userId])
+  @@index([productId])
   @@map("wishlist_items")
 }
+
