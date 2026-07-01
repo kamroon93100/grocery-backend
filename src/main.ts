@@ -1,5 +1,6 @@
 ﻿import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import compression from 'compression';
@@ -10,18 +11,22 @@ import { RequestLoggerInterceptor } from './common/interceptors/request-logger.i
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  const configService = app.get(ConfigService);
+
+  const corsOrigins =
+    configService
+      .get<string>('CORS_ORIGIN', '')
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean);
+
   app.setGlobalPrefix('api');
 
   app.use(helmet());
   app.use(compression());
 
   app.enableCors({
-    origin: [
-      'http://localhost:8000',
-      'http://127.0.0.1:8000',
-      'http://localhost:8080',
-      'http://127.0.0.1:8080',
-    ],
+    origin: corsOrigins.length > 0 ? corsOrigins : true,
     credentials: true,
   });
 
@@ -36,20 +41,25 @@ async function bootstrap() {
     }),
   );
 
-  const config = new DocumentBuilder()
+  const swagger = new DocumentBuilder()
     .setTitle('Kohli Store API')
-    .setDescription('Production-ready local grocery store backend API')
+    .setDescription('Production API')
     .setVersion('1.0.0')
     .addBearerAuth()
     .build();
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  SwaggerModule.setup(
+    'api/docs',
+    app,
+    SwaggerModule.createDocument(app, swagger),
+  );
 
-  const port = process.env.PORT || 3001;
+  const port = configService.get<number>('PORT', 3001);
+
   await app.listen(port);
-  console.log(`Kohli Store API running on http://127.0.0.1:${port}/api`);
-  console.log(`Swagger docs running on http://127.0.0.1:${port}/api/docs`);
+
+  console.log(`🚀 API running on : ${port}`);
+  console.log(`📚 Swagger : http://localhost:${port}/api/docs`);
 }
 
 bootstrap();
