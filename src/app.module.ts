@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+﻿import { Module } from '@nestjs/common';
 import { PrismaModule } from './prisma/prisma.module';
 import { CategoriesModule } from './categories/categories.module';
 import { SubcategoriesModule } from './subcategories/subcategories.module';
@@ -17,6 +17,7 @@ import { ReviewsModule } from './reviews/reviews.module';
 import { CouponsModule } from './coupons/coupons.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { WishlistModule } from './wishlist/wishlist.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
@@ -38,6 +39,8 @@ import { WishlistModule } from './wishlist/wishlist.module';
     CouponsModule,
     NotificationsModule,
     WishlistModule,
+    HealthModule,
   ],
 })
 export class AppModule {}
+
