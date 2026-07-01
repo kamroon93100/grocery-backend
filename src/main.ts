@@ -13,6 +13,12 @@ import { RequestLoggerInterceptor } from './common/interceptors/request-logger.i
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Cross-Origin-Resource-Policy', 'cross-origin');
+    next();
+  });
+
   app.useStaticAssets(join(process.cwd(), 'public'), { prefix: '/' });
 
   const configService = app.get(ConfigService);
@@ -67,4 +73,5 @@ async function bootstrap() {
 }
 
 bootstrap();
+
 
