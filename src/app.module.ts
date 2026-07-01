@@ -1,5 +1,7 @@
 ﻿import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import * as Joi from 'joi';
 import { PrismaModule } from './prisma/prisma.module';
 import { CategoriesModule } from './categories/categories.module';
 import { SubcategoriesModule } from './subcategories/subcategories.module';
@@ -22,6 +24,17 @@ import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      validationSchema: Joi.object({
+        DATABASE_URL: Joi.string().required(),
+        JWT_SECRET: Joi.string().min(24).default('development_only_change_this_secret'),
+        JWT_EXPIRES_IN: Joi.string().default('7d'),
+        PORT: Joi.number().default(3001),
+        NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
+        CORS_ORIGIN: Joi.string().allow('').optional(),
+      }),
+    }),
     ThrottlerModule.forRoot([
       {
         ttl: 60000,
