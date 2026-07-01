@@ -1,0 +1,34 @@
+﻿version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kohli_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kohli
+      POSTGRES_PASSWORD: kohli_password
+      POSTGRES_DB: kohli_store
+    ports:
+      - "5433:5432"
+    volumes:
+      - kohli_pg_data:/var/lib/postgresql/data
+
+  api:
+    build: .
+    container_name: kohli_api
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgresql://kohli:kohli_password@postgres:5432/kohli_store?schema=public
+      JWT_SECRET: change_this_to_a_long_random_secret_for_production
+      JWT_EXPIRES_IN: 7d
+      PORT: 3001
+      NODE_ENV: production
+      CORS_ORIGIN: http://localhost:8000,http://127.0.0.1:8000,http://localhost:8080,http://127.0.0.1:8080
+    ports:
+      - "3001:3001"
+
+volumes:
+  kohli_pg_data:

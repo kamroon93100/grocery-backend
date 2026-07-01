@@ -1,0 +1,8 @@
+﻿node_modules
+dist
+.git
+.env
+image_tmp
+image_tmp_fix
+image_fix_tmp
+*.log
